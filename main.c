@@ -17,7 +17,11 @@ int main(int argc, char* argv[])
 		batch_file = fopen(argv[1], "r");
 		FILE *sh_file;
 		sh_file = fopen(argv[2], "w");
+		if (batch_file == NULL){
+			printf("Could not find file: ", argv[1]);
 
+			return 1;
+		}
 		batch2Shell(batch_file, sh_file);
 
 		fclose(batch_file);
