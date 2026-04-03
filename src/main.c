@@ -9,7 +9,7 @@ int batch2Shell(FILE *fptr, FILE *shell);
 int main(int argc, char* argv[])
 {
 	if (argc == 1){
-		printf("Usage: %s <path/to/batch/file> <name/of/the/sh/file>", argv[0]);
+		printf("Usage: %s <path/to/batch/file> <name/of/the/sh/file> \n", argv[0]);
 
 		return 0;
 	} else {
@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
 		FILE *sh_file;
 		sh_file = fopen(argv[2], "w");
 		if (batch_file == NULL){
-			printf("Could not find file: ", argv[1]);
+			printf("Could not find file: %s\n", argv[1]);
 
 			return 1;
 		}
@@ -35,7 +35,7 @@ int batch2Shell(FILE *fptr, FILE *shell)
 {
 	char txt_buff[1024];
 	if (shell == NULL){
-		printf("Could not write to sh file");
+		printf("Could not write to sh file\n");
 
 		return 1;
 	} else {
