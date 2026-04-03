@@ -26,7 +26,7 @@ make
 ```powershell
 mkdir build
 cd build
-cmake -G "MinGWMakefiles" -S .. -B .
+cmake -G "MinGW Makefiles" -S .. -B .
 cmake --build .
 ```
 
