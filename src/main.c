@@ -4,7 +4,6 @@
 #include <string.h>
 
 
-
 int batch2Shell(FILE *fptr, FILE *shell);
 
 int main(int argc, char* argv[])
