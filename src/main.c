@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 
+#include "parser.h"
 
 int batch2Shell(FILE *fptr, FILE *shell);
 
@@ -40,7 +41,10 @@ int batch2Shell(FILE *fptr, FILE *shell)
 		return 1;
 	} else {
 		while( fgets( txt_buff, sizeof(txt_buff), fptr ) != NULL ){
-			fprintf(shell, txt_buff);
+			// fprintf(shell, txt_buff);
+            Parser_t parser;
+
+            tokenizer(txt_buff);
 
 		}
 
