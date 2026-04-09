@@ -2,26 +2,32 @@
 #include <stdio.h>
 #include <string.h>
 
-void tokenizer(char bat_code[])
-{
-    char token[100] = {0};
-    size_t j = 0;
+void tokenizer(char bat_code[]) {
+    char token[100];
+    int j = 0;
+    
+    char full_str[1024];
 
-    for (size_t i = 0; bat_code[i] != '\0'; i++){
-        printf("Buffer Contents: %c\n", bat_code[i]);
 
-        if (bat_code[i] == '\n') {
-            continue;
-        }
+    for (int i = 0; i < strlen(bat_code); i++) {
 
-        token[j++] = bat_code[i];
-
-        if (j >= sizeof(token) - 1) {
-            break;
+        if (bat_code[i] == ' ' || bat_code[i] == '\n') {
+            if (j > 0) {
+                token[j] = '\0';   // end string
+                printf("Token: %s\n", token);
+                j = 0;             // reset buffer
+            }
+        } else {
+            token[j++] = bat_code[i]; // build string
         }
     }
 
-    token[j] = '\0';
+    if (j > 0) {
+        token[j] = '\0';
+        printf("Token: %s\n", token);
+    }
 
-    printf("Processed token: %s\n", token);
+    snprintf(full_str, sizeof(full_str), token);
+
+    printf("Full str: %s\n", full_str);
 }
