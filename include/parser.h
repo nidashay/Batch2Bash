@@ -3,13 +3,19 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include <stddef.h>
+
 typedef struct{
 
-    char temp_buff[1024];
+    const char* data;
 
+    size_t size;
+    
 
-} Parser_t;
+} Token_t;
 
-void tokenizer(char bat_code[]);
+Token_t tokenizer(char bat_code[]);
+
+void parseToken(Token_t *token, char* str);
 
 #endif 

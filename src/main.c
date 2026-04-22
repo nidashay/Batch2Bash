@@ -34,6 +34,8 @@ int main(int argc, char* argv[])
 
 int batch2Shell(FILE *fptr, FILE *shell)
 {
+
+    char buff[1024];
 	char txt_buff[1024];
 	if (shell == NULL){
 		printf("Could not write to sh file\n");
@@ -42,9 +44,13 @@ int batch2Shell(FILE *fptr, FILE *shell)
 	} else {
 		while( fgets( txt_buff, sizeof(txt_buff), fptr ) != NULL ){
 			// fprintf(shell, txt_buff);
-            Parser_t parser;
+            Token_t t_parser;
+            
+            // snprintf(buff, sizeof(buff), txt_buff);
 
-            tokenizer(txt_buff);
+            // printf("%s\n", buff);
+
+            parseToken(&t_parser, "Hello World, This is minecraft guru here\n");
 
 		}
 
