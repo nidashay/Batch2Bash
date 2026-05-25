@@ -19,27 +19,58 @@ static void replace_vars(char *line, char *out, size_t out_size) {
     char *o_end = out + out_size - 1;
 
     while (*p && o < o_end) {
-        if (*p == '%' && *(p + 1) != '%') {
-            char *start = p + 1;
-            char *end = strchr(start, '%');
-            if (end) {
+        if (*p == '%') {
+            if (isdigit((unsigned char)*(p + 1))) {
+                // Handle %1, %2, etc.
                 *o++ = '$';
-                while (start < end && o < o_end) {
-                    *o++ = *start++;
+                *o++ = *(p + 1);
+                p += 2;
+            } else if (*(p + 1) == '~' && *(p + 2) == 'd' && *(p + 3) == 'p' && *(p + 4) == '0') {
+                // Handle %~dp0
+                if (o + 17 < o_end) {
+                    strcpy(o, "$(dirname \"$0\")");
+                    o += 16;
                 }
-                p = end + 1;
+                p += 5;
+            } else if (*(p + 1) == '%') {
+                // Escaped %
+                *o++ = '%';
+                p += 2;
             } else {
-                *o++ = *p++;
+                char *start = p + 1;
+                char *end = strchr(start, '%');
+                if (end) {
+                    size_t len = end - start;
+                    if (len == 2 && strncasecmp(start, "CD", 2) == 0) {
+                        if (o + 5 < o_end) {
+                            strcpy(o, "$PWD");
+                            o += 4;
+                        }
+                    } else {
+                        *o++ = '$';
+                        while (start < end && o < o_end) {
+                            *o++ = *start++;
+                        }
+                    }
+                    p = end + 1;
+                } else {
+                    *o++ = *p++;
+                }
             }
-        } else if (*p == '%' && *(p + 1) == '%') {
-            // Escaped %
-            *o++ = '%';
-            p += 2;
         } else {
             *o++ = *p++;
         }
     }
     *o = '\0';
+}
+
+static char *smart_quote(char *str, char *buf, size_t buf_size) {
+    if (str[0] == '"' && str[strlen(str) - 1] == '"') {
+        strncpy(buf, str, buf_size);
+    } else {
+        snprintf(buf, buf_size, "\"%s\"", str);
+    }
+    return buf;
 }
 
 void translate_line(char *batch_line, FILE *output_file) {
@@ -53,6 +84,7 @@ void translate_line(char *batch_line, FILE *output_file) {
     replace_vars(trimmed, line_with_vars, sizeof(line_with_vars));
 
     // Convert backslashes to forward slashes in paths (basic heuristic)
+    // Only if not in a string? For now, keep it simple.
     for (int i = 0; line_with_vars[i]; i++) {
         if (line_with_vars[i] == '\\') {
             line_with_vars[i] = '/';
@@ -60,7 +92,7 @@ void translate_line(char *batch_line, FILE *output_file) {
     }
 
     // Handle comments
-    if (strncmp(line_with_vars, "rem ", 4) == 0 || strncmp(line_with_vars, "REM ", 4) == 0) {
+    if (strncasecmp(line_with_vars, "rem ", 4) == 0) {
         fprintf(output_file, "# %s\n", line_with_vars + 4);
         return;
     }
@@ -70,8 +102,7 @@ void translate_line(char *batch_line, FILE *output_file) {
     }
 
     // Handle @echo off
-    if (strcasecmp(line_with_vars, "@echo off") == 0) {
-        // Usually ignored in bash
+    if (strcasecmp(line_with_vars, "@echo off") == 0 || strcasecmp(line_with_vars, "@echo on") == 0) {
         return;
     }
 
@@ -93,7 +124,10 @@ void translate_line(char *batch_line, FILE *output_file) {
             *equal = '\0';
             char *var = trim_whitespace(assignment);
             char *val = trim_whitespace(equal + 1);
-            fprintf(output_file, "%s=\"%s\"\n", var, val);
+            fprintf(output_file, "%s=%s\n", var, smart_quote(val, (char[256]){0}, 256));
+        } else {
+            // Probably set /p or something not fully supported, or just 'set' to list vars
+            fprintf(output_file, "# Unsupported set command: %s\n", line_with_vars);
         }
         return;
     }
@@ -110,6 +144,16 @@ void translate_line(char *batch_line, FILE *output_file) {
         return;
     }
 
+    // Handle cd / chdir
+    if (strncasecmp(line_with_vars, "cd ", 3) == 0) {
+        fprintf(output_file, "cd %s\n", line_with_vars + 3);
+        return;
+    }
+    if (strncasecmp(line_with_vars, "chdir ", 6) == 0) {
+        fprintf(output_file, "cd %s\n", line_with_vars + 6);
+        return;
+    }
+
     // Basic command mappings
     if (strncasecmp(line_with_vars, "del ", 4) == 0) {
         fprintf(output_file, "rm %s\n", line_with_vars + 4);
@@ -123,20 +167,14 @@ void translate_line(char *batch_line, FILE *output_file) {
         fprintf(output_file, "mv %s\n", line_with_vars + 5);
         return;
     }
-    if (strncasecmp(line_with_vars, "md ", 3) == 0) {
-        fprintf(output_file, "mkdir %s\n", line_with_vars + 3);
+    if (strncasecmp(line_with_vars, "md ", 3) == 0 || strncasecmp(line_with_vars, "mkdir ", 6) == 0) {
+        char *dir = (strncasecmp(line_with_vars, "md ", 3) == 0) ? line_with_vars + 3 : line_with_vars + 6;
+        fprintf(output_file, "mkdir -p %s\n", dir);
         return;
     }
-    if (strncasecmp(line_with_vars, "mkdir ", 6) == 0) {
-        fprintf(output_file, "mkdir %s\n", line_with_vars + 6);
-        return;
-    }
-    if (strncasecmp(line_with_vars, "rd ", 3) == 0) {
-        fprintf(output_file, "rmdir %s\n", line_with_vars + 3);
-        return;
-    }
-    if (strncasecmp(line_with_vars, "rmdir ", 6) == 0) {
-        fprintf(output_file, "rmdir %s\n", line_with_vars + 6);
+    if (strncasecmp(line_with_vars, "rd ", 3) == 0 || strncasecmp(line_with_vars, "rmdir ", 6) == 0) {
+        char *dir = (strncasecmp(line_with_vars, "rd ", 3) == 0) ? line_with_vars + 3 : line_with_vars + 6;
+        fprintf(output_file, "rmdir %s\n", dir);
         return;
     }
 
@@ -146,16 +184,44 @@ void translate_line(char *batch_line, FILE *output_file) {
         return;
     }
 
-    // Handle if exist
-    if (strncasecmp(line_with_vars, "if exist ", 9) == 0) {
-        char *rest = line_with_vars + 9;
-        char *space = strchr(rest, ' ');
-        if (space) {
-            *space = '\0';
-            char *file = rest;
-            char *command = space + 1;
-            fprintf(output_file, "if [ -e \"%s\" ]; then %s; fi\n", file, command);
-            return;
+    // Handle if commands
+    if (strncasecmp(line_with_vars, "if ", 3) == 0) {
+        char *rest = line_with_vars + 3;
+        if (strncasecmp(rest, "not exist ", 10) == 0) {
+            char *file_cmd = rest + 10;
+            char *space = strchr(file_cmd, ' ');
+            if (space) {
+                *space = '\0';
+                fprintf(output_file, "if [ ! -e \"%s\" ]; then %s; fi\n", file_cmd, space + 1);
+                return;
+            }
+        } else if (strncasecmp(rest, "exist ", 6) == 0) {
+            char *file_cmd = rest + 6;
+            char *space = strchr(file_cmd, ' ');
+            if (space) {
+                *space = '\0';
+                fprintf(output_file, "if [ -e \"%s\" ]; then %s; fi\n", file_cmd, space + 1);
+                return;
+            }
+        } else {
+            // Handle if "a"=="b"
+            char *eq = strstr(rest, "==");
+            if (eq) {
+                *eq = '\0';
+                char *left = trim_whitespace(rest);
+                char *right_cmd = eq + 2;
+                char *space = strchr(right_cmd, ' ');
+                if (space) {
+                    *space = '\0';
+                    char *right = trim_whitespace(right_cmd);
+                    char q_left[512], q_right[512];
+                    fprintf(output_file, "if [ %s = %s ]; then %s; fi\n", 
+                            smart_quote(left, q_left, sizeof(q_left)), 
+                            smart_quote(right, q_right, sizeof(q_right)), 
+                            space + 1);
+                    return;
+                }
+            }
         }
     }
 
