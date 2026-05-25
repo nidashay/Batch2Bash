@@ -1,21 +1,14 @@
-#pragma once
-
 #ifndef PARSER_H
 #define PARSER_H
 
-#include <stddef.h>
+#include <stdio.h>
 
-typedef struct{
+/**
+ * @brief Translates a single line of Batch code to Bash code.
+ * 
+ * @param batch_line The input line of Batch code.
+ * @param output_file The file pointer to write the Bash code to.
+ */
+void translate_line(char *batch_line, FILE *output_file);
 
-    const char* data;
-
-    size_t size;
-    
-
-} Token_t;
-
-Token_t tokenizer(char bat_code[]);
-
-void parseToken(Token_t *token, char* str);
-
-#endif 
+#endif
