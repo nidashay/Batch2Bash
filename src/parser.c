@@ -146,6 +146,19 @@ void translate_line(char *batch_line, FILE *output_file) {
         return;
     }
 
+    // Handle if exist
+    if (strncasecmp(line_with_vars, "if exist ", 9) == 0) {
+        char *rest = line_with_vars + 9;
+        char *space = strchr(rest, ' ');
+        if (space) {
+            *space = '\0';
+            char *file = rest;
+            char *command = space + 1;
+            fprintf(output_file, "if [ -e \"%s\" ]; then %s; fi\n", file, command);
+            return;
+        }
+    }
+
     // Fallback: just print the line as is (might be a direct command common to both)
     fprintf(output_file, "%s\n", line_with_vars);
 }
